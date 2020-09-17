@@ -16,6 +16,8 @@
 
 # Functions
 
+set -x
+
 function f_calc_free_pct() {
 local desired_free=$1
 

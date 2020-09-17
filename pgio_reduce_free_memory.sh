@@ -16,8 +16,6 @@
 
 # Functions
 
-set -x
-
 function f_calc_free_pct() {
 local desired_free=$1
 
@@ -51,8 +49,8 @@ sync;sync;sync  # I know modern systems don't need the "3 syncs" but I'm old :).
 echo 0 > /proc/sys/vm/nr_hugepages
 echo 3 > /proc/sys/vm/drop_caches
 
-MemFreeBytes=$( grep '^MemFree' /proc/meminfo | awk '{ print $2 * 1024 }' )
-Pages=$( echo " ( ($MemFreeBytes  ) - ( $LeaveFreeGB * 2^30 ) ) / ( 2 * 2 ^ 20 )" | bc )
+MemFreeBytes=$( printf "%.f" $(grep '^MemFree' /proc/meminfo | awk '{ print $2 * 1024 }') )
+Pages=$( echo " ( ( $MemFreeBytes ) - ( $LeaveFreeGB * 2^30 ) ) / ( 2 * 2 ^ 20 )" | bc )
 
 free
 sync;sync;sync

@@ -14,33 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Functions
-
-function f_calc_free_pct() {
-local desired_free=$1
-
-free -b | grep '^Mem' | awk -v x=$desired_free '{ printf("%4.1f \n", (x * 1024 * 1024 * 1024) / $2 * 100 ) }'
-
-}
-
-# Main program
-
 [[ $# -ne 1 ]] && echo "Usage: $0 <integer amount of memory (in gigabytes) to remain free.>" && exit 1
-
+[[ ! -w /etc/passwd ]] && echo "You must be superuser to execute $0" && exit 1
 if ( ! type -p bc > /dev/null 2>&1 )
 then
 	echo "bc(1) is not installed"
 	exit 1
 fi
 
-[[ ! -w /etc/passwd ]] && echo "You must be superuser to execute $0" && exit 1
-
 LeaveFreeGB=$1
-LeaveFreePct=$( f_calc_free_pct $LeaveFreeGB )
 
 echo;echo
-read -p "Enter \"YES\" to consume free memory leaving only ${LeaveFreeGB}GB free (${LeaveFreePct}% of all RAM) : " tmp
 
+read -p "Enter \"YES\" to consume free memory leaving only ${LeaveFreeGB}GB free : " tmp
 [[ "$tmp" != "YES" ]] && echo "You did not enter \"YES\". Aborting." && exit 1
 
 echo "Taking action to reduce free memory down to ${LeaveFreeGB}GB available."
@@ -60,6 +46,4 @@ echo
 echo "Attempting to allocate $Pages huge pages"
 echo $Pages > /proc/sys/vm/nr_hugepages
 
-
 egrep "HugePages_Total|MemAvailable" /proc/meminfo
-

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 1999 Kevin Closson
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -85,7 +85,7 @@ psql "$conn_string" -c 'show shared_buffers'--quiet -t | sed -e '/^$/d' -e 's/ /
 function f_format_output() {
 #args: $run_time $after_reads $before_reads $dbname $num_schemas $ num_threads $before_cache_hits $after_cache_hits
 
-awk '{ printf("DBNAME:  %s. %d schemas, %d threads(each). Run time: %d seconds. RIOPS >%ld< CACHE_HITS/s >%ld<\n\n", $4,$5,$6, $1 , ($2 - $3 ) / $1, ($8 - $7) / $1  ) }'
+awk '{ printf("DBNAME:  %s. %d schemas, %d threads(each). Run time: %d seconds. RIOPS >%ld< CACHE_HITS/s >%ld< TIME_PER_READ_MS >%.5f<\n\n", $4,$5,$6, $1 , ($2 - $3 ) / $1, ($8 - $7) / $1, ($9 - $10) / ($2 - $3 ) ) }'
 }
 
 function f_cr_functions() {
@@ -178,7 +178,7 @@ mypsql=""
 
 export MIN_SCALE=1024
 export TABLE_SEED_NAME="pgio"
-required_functions="pgio_get_rand.sql pgio_audit_table.sql pgio.sql"
+required_functions="sql/pgio_get_rand.sql sql/pgio_audit_table.sql sql/pgio.sql"
 
 mypsql=$( type -p psql )
 
@@ -233,6 +233,7 @@ echo "Testing $num_schemas schemas with $num_threads thread(s) accessing $tmp ($
 echo "Running iostat, vmstat and mpstat on current host--in background."
 
 before_reads=$( f_get_pg_stat_database_stats blks_read $dbname "$connect_string")
+before_read_time=$( f_get_pg_stat_database_stats blk_read_time $dbname "$connect_string")
 before_cache_hits=$( f_get_pg_stat_database_stats blks_hit $dbname "$connect_string")
 
 misc_pids=$( f_os_monitoring )
@@ -257,8 +258,8 @@ launch_secs=$(( SECONDS - begin_secs ))
 f_diskstats
 
 echo "pg_stat_database stats:"
-echo "          datname| blks_hit| blks_read|tup_returned|tup_fetched|tup_updated"
-before_stats=$( f_get_pg_stat_database_stats "datname, blks_hit, blks_read,tup_returned,tup_fetched,tup_updated" $dbname "$connect_string" )
+echo "          datname| blks_hit| blks_read| blk_read_time| tup_returned|tup_fetched|tup_updated"
+before_stats=$( f_get_pg_stat_database_stats "datname, blks_hit, blks_read, blk_read_time, tup_returned,tup_fetched,tup_updated" $dbname "$connect_string" )
 
 echo "BEFORE: $before_stats"
 
@@ -268,21 +269,20 @@ wait $waitpids  # The workload is running while we wait here
 
 end_secs=$SECONDS
 
-after_stats=$( f_get_pg_stat_database_stats "datname, blks_hit, blks_read,tup_returned,tup_fetched,tup_updated" $dbname "$connect_string")
+after_stats=$( f_get_pg_stat_database_stats "datname, blks_hit, blks_read, blk_read_time, tup_returned,tup_fetched,tup_updated" $dbname "$connect_string")
 echo "AFTER:  $after_stats"
 
 f_diskstats
 
 after_reads=$( f_get_pg_stat_database_stats blks_read $dbname "$connect_string")
+after_read_time=$( f_get_pg_stat_database_stats blk_read_time $dbname "$connect_string")
 after_cache_hits=$( f_get_pg_stat_database_stats blks_hit $dbname "$connect_string")
 
 run_time=$(( end_secs - begin_secs ))
 
-echo "$run_time $after_reads $before_reads $dbname $num_schemas $num_threads $before_cache_hits $after_cache_hits" | f_format_output
+echo "$run_time $after_reads $before_reads $dbname $num_schemas $num_threads $before_cache_hits $after_cache_hits $after_read_time $before_read_time" | f_format_output
 
 $mykill -9 $misc_pids > /dev/null 2>&1
 
 f_print_results > pgio_session_detail.out
-
-
 

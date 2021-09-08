@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 1999 Kevin Closson
 
 # Licensed under the Apache License, Version 2.0 (the "License");

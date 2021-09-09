@@ -102,7 +102,7 @@ function f_get_base_table_facts() {
 local connect_string="$1"
 local out_string=""
 
-out_string=$( psql "$connect_string" -c "\d+ pgio_base" 2>&1 )
+out_string=$( psql $connect_string -c "\d+ pgio_base" 2>&1 )
 
 if ( echo $out_string | grep -i 'did not find' > /dev/null 2>&1 )
 then
@@ -132,9 +132,9 @@ insert into ${table_seed_name}${target} select * from $source;
 
 function f_test_conn() {
 local ret=0
-local connect_string=$1
+local connect_string="$1"
 
-echo '\q' | psql "$connect_string"
+echo '\q' | psql $connect_string
 ret=$?
 
 [[ "$ret" -ne 0 ]] && return 1
@@ -170,7 +170,7 @@ CREATE_BASE_TABLE=${CREATE_BASE_TABLE:="TRUE"}
 num_schemas=$NUM_SCHEMAS
 num_threads=$NUM_THREADS
 create_base_table=$CREATE_BASE_TABLE
-connect_string="$CONNECT_STRING"
+connect_string=$CONNECT_STRING
 
 
 if ( ! f_test_conn "$connect_string" )
@@ -200,7 +200,7 @@ echo "Batching info: Loading $num_threads schemas per batch as per pgio.conf->NU
 
 if [ "$create_base_table" = "TRUE" ]
 then
-	f_create_base_table pgio_base $scale | psql "$connect_string" > pgio_base_table_load.out 2>&1
+	f_create_base_table pgio_base $scale | psql $connect_string > pgio_base_table_load.out 2>&1
 	echo "Base table loading time: $(( SECONDS - before )) seconds."
 else
 	echo "NOTICE: Skipping creation of base table as per pgio.conf->CREATE_BASE_TABLE. Loading will proceed from existing pgio_base table."
@@ -211,13 +211,13 @@ fi
 
 before=$SECONDS
 
-f_drop_tables $TABLE_SEED_NAME | psql --echo-all "$connect_string"  > pgio_setup_drop_tables.out 2>&1
+f_drop_tables $TABLE_SEED_NAME | psql --echo-all $connect_string  > pgio_setup_drop_tables.out 2>&1
 
 before_group_data_load=$SECONDS
 
 for (( i=1 , cnt=1 ; i <= $num_schemas ; i++ , cnt++ ))
 do
-	( f_create_table $i pgio_base $TABLE_SEED_NAME | psql "$connect_string" > pgio_setup_t${i}.out 2>&1 ) &
+	( f_create_table $i pgio_base $TABLE_SEED_NAME | psql $connect_string > pgio_setup_t${i}.out 2>&1 ) &
 
 	if [ $cnt = $num_threads ]
 	then
@@ -241,7 +241,7 @@ wait
 echo -e "\nGroup data loading phase complete.         Elapsed: $load_time seconds."
 
 sleep 5
-psql "$connect_string" -f pgio_table_sizes.sql > pgio_data_load_table_sizes.out
+psql $connect_string -f sql/pgio_table_sizes.sql > pgio_data_load_table_sizes.out
 
 rm -f pgio_setup_*
 

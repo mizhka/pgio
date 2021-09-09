@@ -72,14 +72,14 @@ function f_get_pg_stat_database_stats() {
 local columns="$1"
 local dbname="$2"
 local conn_string="$3"
-psql "$conn_string"  -t --quiet  -c "select $columns from pg_stat_database where datname = '$dbname'"
+psql $conn_string  -t --quiet  -c "select $columns from pg_stat_database where datname = '$dbname'"
 }
 
 function f_get_shared_buffers() {
 local dbname=$1
 local conn_string=$2
 
-psql "$conn_string" -c 'show shared_buffers'--quiet -t | sed -e '/^$/d' -e 's/ //g'
+psql $conn_string -c 'show shared_buffers'--quiet -t | sed -e '/^$/d' -e 's/ //g'
 }
 
 function f_format_output() {
@@ -105,26 +105,22 @@ echo "
 -------+-----------------+-------------+-------------+-------------------+-------------------+----------------------+----------------------
 "
 
-cat .pgio_schema_[0-9]*.out | sed -e '/[a-z]/d' -e '/---/g' -e '/^$/d'
-}
-
-function f_clean_files() {
-rm -f pgio_*.out .pgio_*out
+cat $output/.pgio_schema_[0-9]*.out | sed -e '/[a-z]/d' -e '/---/g' -e '/^$/d'
 }
 
 function f_diskstats() {
 	{
 	cat /proc/diskstats
 	echo
-	} >> pgio_diskstats.out
+	} >> $output/pgio_diskstats.out
 }
 
 function f_os_monitoring() {
-( iostat -xm 3 > iostat.out 2>&1 ) &
+( iostat -xm 3 > $output/iostat.out 2>&1 ) &
 misc_pids="${misc_pids} $!"
-( vmstat 3 > vmstat.out 2>&1 ) &
+( vmstat 3 > $output/vmstat.out 2>&1 ) &
 misc_pids="${misc_pids} $!"
-( mpstat -P ALL 3  > mpstat.out 2>&1) &
+( mpstat -P ALL 3  > $output/mpstat.out 2>&1) &
 misc_pids="${misc_pids} $!"
 
 echo "$misc_pids"
@@ -134,7 +130,7 @@ function f_test_conn() {
 local ret=0
 local connect_string="$1"
 
-echo '\q' | psql "$connect_string" > /dev/null 2>&1
+echo '\q' | psql $connect_string
 ret=$?
 
 [[ "$ret" -ne 0 ]] && return 1
@@ -167,7 +163,7 @@ work_unit=$WORK_UNIT
 update_work_unit=$UPDATE_WORK_UNIT
 scale=$SCALE
 dbname="$DBNAME"
-connect_string="$CONNECT_STRING"
+connect_string=$CONNECT_STRING
 
 misc_pids=""
 mykill="/bin/kill "
@@ -175,6 +171,10 @@ waitpids=""
 ret=0
 tmp=""
 mypsql=""
+
+output="results$(date +%s)"
+
+mkdir -p $output
 
 export MIN_SCALE=1024
 export TABLE_SEED_NAME="pgio"
@@ -196,10 +196,6 @@ then
         exit 1
 fi
 
-
-
-f_clean_files
-
 tmp="$scale"  # Save the user-provided value for display
 scale=$( f_fix_scale 8192 $tmp ) ; ret=$?
 
@@ -210,7 +206,7 @@ then
         exit 1
 fi
 
-f_cr_functions "$required_functions" "$connect_string" >> pgio_objects_creation.out 2>&1
+f_cr_functions "$required_functions" "$connect_string" >> $output/pgio_objects_creation.out 2>&1
 
 shared_buffers=$( f_get_shared_buffers $dbname "$connect_string" )
 
@@ -247,7 +243,7 @@ do
 
 	for (( j = 1 ; j <= num_threads ; j++ ))
 	do
-		( echo "SELECT * FROM mypgio('${TABLE_SEED_NAME}$i', $pct, $run_tm, $scale, $work_unit, $update_work_unit);" | psql "$connect_string" >> .pgio_schema_${i}_${j}.out 2>&1 ) &
+		( echo "SELECT * FROM mypgio('${TABLE_SEED_NAME}$i', $pct, $run_tm, $scale, $work_unit, $update_work_unit);" | psql $connect_string >> $output/.pgio_schema_${i}_${j}.out 2>&1 ) &
 		waitpids="$waitpids $!"
 	done
 done
@@ -284,5 +280,4 @@ echo "$run_time $after_reads $before_reads $dbname $num_schemas $num_threads $be
 
 $mykill -9 $misc_pids > /dev/null 2>&1
 
-f_print_results > pgio_session_detail.out
-
+f_print_results | tee $output/pgio_session_detail.out

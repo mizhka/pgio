@@ -95,7 +95,7 @@ local tmp=""
 
 for tmp in $( echo $required_functions )
 do
-	psql "$conn_string" -f $tmp
+	psql $conn_string -f $tmp
 done
 }
 
@@ -172,7 +172,7 @@ ret=0
 tmp=""
 mypsql=""
 
-output="results$(date +%s)"
+output="results/$(date +%s)"
 
 mkdir -p $output
 

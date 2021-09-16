@@ -123,10 +123,11 @@ local table_seed_name=$3
 
 echo "
 drop table ${table_seed_name}${target} ;
-create table ${table_seed_name}${target} with (fillfactor=10) as select * from $source limit 1;
-truncate table ${table_seed_name}${target};
-create index ${table_seed_name}${target}_idx on ${table_seed_name}${target}(mykey) ;
+create table ${table_seed_name}${target} with (fillfactor=10) as select * from $source limit 1 with no data;
 insert into ${table_seed_name}${target} select * from $source;
+vacuum (analyze) ${table_seed_name}${target};
+select count(1) from ${table_seed_name}${target};
+create index ${table_seed_name}${target}_idx on ${table_seed_name}${target}(mykey);
 "
 }
 
